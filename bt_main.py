@@ -1,6 +1,6 @@
 from get_finance_data import get_data
 import backtrader as bt
-from strategies import *
+from strategy.strategies import *
 import argparse
 
 
