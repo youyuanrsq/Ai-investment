@@ -15,7 +15,7 @@ class PrintClose(bt.Strategy):
 
 
 class MAcrossover(bt.Strategy):
-    # 设置全局的交易策略参数
+    # Moving average parameters
     params = (('pfast', 5), ('pslow', 81),)
 
     def log(self, txt, dt=None):
@@ -23,63 +23,49 @@ class MAcrossover(bt.Strategy):
         print('%s, %s' % (dt.isoformat(), txt))
 
     def __init__(self):
-        # 指定价格序列
         self.dataclose = self.datas[0].close
-
+        # Order variable will contain ongoing order details/status
         self.order = None
-        # 获取初始资金
+
         self.start_value = self.broker.get_value()
-        # 实例化移动均值
+        # Instantiate moving averages
         self.slow_sma = bt.indicators.MovingAverageSimple(self.datas[0], period=self.params.pslow)
         self.fast_sma = bt.indicators.MovingAverageSimple(self.datas[0], period=self.params.pfast)
 
 
     def notify_order(self, order):
-        # 如果order为submitted/accepted，返回空
         if order.status in [order.Submitted, order.Accepted]:
             return
-        # 如果order为buy/sell executed，报告价格结果
+        # Check if an order has been completed
         if order.status in [order.Completed]:
             if order.isbuy():
-                self.log(f'买入:\n价格:{order.executed.price},\
-                        成本:{order.executed.value},\
-                        手续费:{order.executed.comm}')
-                self.buyprice = order.executed.price
-                self.buycomm = order.executed.comm
-            else:
-                self.log(f'卖出:\n价格：{order.executed.price},\
-                        成本: {order.executed.value},\
-                        手续费{order.executed.comm}')
+                self.log('BUY EXECUTED, %.2f' % order.executed.price)
+            elif order.issell():
+                self.log('SELL EXECUTED, %.2f' % order.executed.price)
             self.bar_executed = len(self)
 
-            # 如果指令取消/交易失败, 报告结果
         elif order.status in [order.Canceled, order.Margin, order.Rejected]:
-            self.log('交易失败')
+            self.log('Order Canceled/Margin/Rejected')
+
+        # Reset orders
         self.order = None
 
     def next(self):
-        '''
-        当短期移动平均值向上穿过长期移动平均值时隔天买入，并在收益率达到10%后平仓
-        :return:
-        '''
 
-        # 获取当前账户价值
         total_value = self.broker.get_value()
-        # 计算收益率
         p_value = (total_value - self.start_value) / self.start_value
 
-        # 检查是否有指令等待执行
         if self.order:
             return
-        # 检查是否持仓
-        if not self.position: # 没有持仓, 寻找买入信号
+        # Check if we are in the market
+        if not self.position: # We are not in the market, look for a signal to OPEN trades
             total_value = self.broker.get_value()
             ss = int((total_value / 100) / self.datas[0].close[0]) * 100
             if self.fast_sma[-1] > self.slow_sma[-1] and self.fast_sma[-2] < self.slow_sma[-2]:
                 self.log('BUY CREATE, %.2f' % self.dataclose[0])
                 self.order = self.buy(size=ss)
 
-        else: # 持仓，寻找平仓信号
+        else: # We are already in the market, look for a signal to CLOSE trades
             if p_value > 0.1:
                 self.log('CLOSE CREATE, %.2f' % self.dataclose[0])
                 self.order = self.close()
@@ -201,48 +187,37 @@ class MACDStrategy(bt.Strategy):
 
     def __init__(self):
         self.order = None
-        # 获取MACD柱
+        # get MACD
         self.macdhist = bt.ind.MACDHisto(self.data,
                                          period_me1=self.p.p1,
                                          period_me2=self.p.p2,
                                          period_signal=self.p.p3)
 
     def notify_order(self, order):
-        # 如果order为submitted/accepted，返回空
         if order.status in [order.Submitted, order.Accepted]:
             return
-        # 如果order为buy/sell executed，报告价格结果
+        # Check if an order has been completed
         if order.status in [order.Completed]:
             if order.isbuy():
-                self.log(f'买入:\n价格:{order.executed.price},\
-                                成本:{order.executed.value},\
-                                手续费:{order.executed.comm}')
-                self.buyprice = order.executed.price
-                self.buycomm = order.executed.comm
-            else:
-                self.log(f'卖出:\n价格：{order.executed.price},\
-                                成本: {order.executed.value},\
-                                手续费{order.executed.comm}')
+                self.log('BUY EXECUTED, %.2f' % order.executed.price)
+            elif order.issell():
+                self.log('SELL EXECUTED, %.2f' % order.executed.price)
             self.bar_executed = len(self)
 
-            # 如果指令取消/交易失败, 报告结果
         elif order.status in [order.Canceled, order.Margin, order.Rejected]:
-            self.log('交易失败')
+            self.log('Order Canceled/Margin/Rejected')
+
+        # Reset orders
         self.order = None
 
     def next(self):
         if not self.position:
-            # 得到当前账户价值
             total_value = self.broker.get_value()
-            # 1手等于100股，满仓买入
             ss = int((total_value / 100) / self.datas[0].close[0]) * 100
-            # print(ss, total_value)
-            # 当MACD柱大于0（红柱）且无持仓时满仓买入
-            # print(self.macdhist[3])
+
             if self.macdhist > 0:
                 self.order = self.buy(size=ss)
         else:
-            # 当MACD柱小于0（绿柱）且持仓时全部清仓
             if self.macdhist < 0:
                 self.close()
 
@@ -251,7 +226,7 @@ class TurtleStrategy(bt.Strategy):
     params = (
         ('long_period', 36),
         ('short_period', 7),
-        ('printlog', False),
+        ('printlog', True),
     )
 
     def __init__(self):
@@ -260,7 +235,6 @@ class TurtleStrategy(bt.Strategy):
         self.buy_size = 0
         self.buy_count = 0
 
-        # 海龟交易法则中的唐奇安通道和平均波幅ATR
         self.H_line = bt.indicators.Highest(self.data.high(-1), period=self.p.long_period)
         self.L_line = bt.indicators.Lowest(self.data.low(-1), period=self.p.short_period)
         self.TR = bt.indicators.Max((self.data.high(0) - self.data.low(0)),
@@ -274,25 +248,25 @@ class TurtleStrategy(bt.Strategy):
     def next(self):
         if self.order:
             return
-            # 入场：价格突破上轨线且空仓时
+
         if self.buy_signal > 0 and self.buy_count == 0:
             self.buy_size = self.broker.getvalue() * 0.01 / self.ATR
             self.buy_size = int(self.buy_size / 100) * 100
             self.sizer.p.stake = self.buy_size
             self.buy_count = 1
             self.order = self.buy()
-            # 加仓：价格上涨了买入价的0.5的ATR且加仓次数少于3次（含）
+
         elif self.data.close > self.buyprice + 0.5 * self.ATR[0] and self.buy_count > 0 and self.buy_count <= 4:
             self.buy_size = self.broker.getvalue() * 0.01 / self.ATR
             self.buy_size = int(self.buy_size / 100) * 100
             self.sizer.p.stake = self.buy_size
             self.order = self.buy()
             self.buy_count += 1
-            # 离场：价格跌破下轨线且持仓时
+
         elif self.sell_signal < 0 and self.buy_count > 0:
             self.order = self.sell()
             self.buy_count = 0
-            # 止损：价格跌破买入价的2个ATR且持仓时
+
         elif self.data.close < (self.buyprice - 2 * self.ATR[0]) and self.buy_count > 0:
             self.order = self.sell()
             self.buy_count = 0
@@ -303,38 +277,82 @@ class TurtleStrategy(bt.Strategy):
             dt = dt or self.datas[0].datetime.date(0)
             print(f'{dt.isoformat()},{txt}')
 
-
     def notify_order(self, order):
-        # 如果order为submitted/accepted,返回空
         if order.status in [order.Submitted, order.Accepted]:
             return
-        # 如果order为buy/sell executed,报告价格结果
+        # Check if an order has been completed
         if order.status in [order.Completed]:
             if order.isbuy():
-                self.log(f'买入:\n价格:{order.executed.price},\
-                成本:{order.executed.value},\
-                手续费:{order.executed.comm}')
-
-                self.buyprice = order.executed.price
-                self.buycomm = order.executed.comm
-            else:
-                self.log(f'卖出:\n价格：{order.executed.price},\
-                成本: {order.executed.value},\
-                手续费{order.executed.comm}')
-
+                self.log('BUY EXECUTED, Price: %.2f, Cost: %.2f, Comm: %.2f' %
+                         (order.executed.price,
+                          order.executed.value,
+                          order.executed.comm))
+            elif order.issell():
+                self.log('SELL EXECUTED, Price: %.2f, Cost: %.2f, Comm: %.2f' %
+                         (order.executed.price,
+                          order.executed.value,
+                          order.executed.comm))
             self.bar_executed = len(self)
-        # 如果指令取消/交易失败, 报告结果
+
         elif order.status in [order.Canceled, order.Margin, order.Rejected]:
-            self.log('交易失败')
+            self.log('Order Canceled/Margin/Rejected')
+
+        # Reset orders
         self.order = None
 
 
-    def notify_trade(self, trade):
-        if not trade.isclosed:
+class BollStrategy(bt.Strategy):
+    params = (('p_period_volume', 10),
+              ('p_sell_ma', 5),
+              ('p_oneplot', False),
+              ('pstake', 100))
+
+    def log(self, txt, dt=None):
+        dt = dt or self.datas[0].datetime.date(0)
+        print('%s, %s' % (dt.isoformat(), txt))
+
+    def __init__(self):
+        self.inds = dict()
+        for i, d in enumerate(self.datas):
+            self.inds[d] = dict()
+            # Brin middle rail
+            boll_mid = bt.ind.BBands(d.close).mid
+            # buy signal
+            self.inds[d]['buy_con'] = bt.And(
+                d.open < boll_mid, d.close > boll_mid,
+                d.volume == bt.ind.Highest(d.volume, period=self.p.p_period_volume, plot=False)
+            )
+            # sell signal
+            self.inds[d]['sell_con'] = d.close < bt.ind.SMA(d.close, period=self.p.p_sell_ma)
+
+    def next(self):
+        for i, d in enumerate(self.datas):
+            dt, dn = self.datetime.date(), d._name
+            pos = self.getposition(d).size
+            if not pos:
+                if self.inds[d]['buy_con']:
+                    self.buy(data=d, size=self.p.pstake)
+            elif self.inds[d]['sell_con']:
+                self.close(data=d)
+    def notify_order(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
             return
-        self.log(f'策略收益：\n毛收益 {trade.pnl:.2f}, 净收益 {trade.pnlcomm:.2f}')
+        # Check if an order has been completed
+        if order.status in [order.Completed]:
+            if order.isbuy():
+                self.log('BUY EXECUTED, Price: %.2f, Cost: %.2f, Comm: %.2f' %
+                         (order.executed.price,
+                          order.executed.value,
+                          order.executed.comm))
+            elif order.issell():
+                self.log('SELL EXECUTED, Price: %.2f, Cost: %.2f, Comm: %.2f' %
+                         (order.executed.price,
+                          order.executed.value,
+                          order.executed.comm))
+            self.bar_executed = len(self)
 
-    def stop(self):
-        self.log(f'(组合线：{self.p.long_period},{self.p.short_period})； \
-        期末总资金: {self.broker.getvalue():.2f}', doprint=True)
+        elif order.status in [order.Canceled, order.Margin, order.Rejected]:
+            self.log('Order Canceled/Margin/Rejected')
 
+        # Reset orders
+        self.order = None
