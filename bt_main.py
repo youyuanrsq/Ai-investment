@@ -5,8 +5,8 @@ import argparse
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--stock_name', default='SPY', help='stock name')
-parser.add_argument('--strategy', default=MACDStrategy, help='a defined strategy')
+parser.add_argument('--stock_name', default='SPY AAPL', help='stock name')
+parser.add_argument('--strategy', default=BollStrategy, help='a defined strategy')
 parser.add_argument('--start', default='2015-01-01', help='start date')
 parser.add_argument('--end', default='2015-12-25', help='end date')
 parser.add_argument('--start_cash', default=100000, help='start cash')
@@ -28,25 +28,26 @@ class TraderSize(bt.Sizer):
 
 
 def main(stock_name, strategy, start, end, start_cash=100000, qts=500, com=0.001):
-    # 初始化控制器
+    # Instantiate Cerebro engine
     cerebro = bt.Cerebro()
-    # 获取单支股票数据
+    # get stock data
     data , stock_names = get_data(stock_name, start, end)
-    # 加载数据
-    if len(stock_names) > 1: # 如果股票数大于1
+    # load data to Cerebro
+    if len(stock_names) > 1:
         for i in stock_names:
             feed = bt.feeds.PandasData(dataname=data[i])
             cerebro.adddata(feed)
-    else: # 如果只是对单只股票进行回测
+    else:
         feed = bt.feeds.PandasData(dataname=data)
         cerebro.adddata(feed)
-    # 导入策略
+    # Add strategy to Cerebro
     cerebro.addstrategy(strategy)
-    # 设置初始资金和手续费
+    # set startcash and commission
     cerebro.broker.set_cash(start_cash)
     cerebro.broker.setcommission(commission=com)
-    # 当使用海龟交易策略时设置交易大小
+    # Set the trade size when using the turtle trading strategy
     # cerebro.addsizer(TraderSize)
+
 
     start_portfolio_value = cerebro.broker.get_value()
 
