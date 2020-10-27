@@ -1,5 +1,5 @@
 import backtrader as bt
-
+import datetime
 
 class PrintClose(bt.Strategy):
 
@@ -328,12 +328,151 @@ class BollStrategy(bt.Strategy):
     def next(self):
         for i, d in enumerate(self.datas):
             dt, dn = self.datetime.date(), d._name
+            total_value = self.broker.get_value()
+            ss = int((total_value / 100) / self.datas[0].close[0]) * 100
             pos = self.getposition(d).size
             if not pos:
                 if self.inds[d]['buy_con']:
-                    self.buy(data=d, size=self.p.pstake)
+                    self.buy(data=d, size=ss)
             elif self.inds[d]['sell_con']:
                 self.close(data=d)
+
+    def notify_order(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
+            return
+        # Check if an order has been completed
+        if order.status in [order.Completed]:
+            if order.isbuy():
+                self.log('BUY EXECUTED, Price: %.2f, Cost: %.2f, Comm: %.2f' %
+                         (order.executed.price,
+                          order.executed.value,
+                          order.executed.comm))
+            elif order.issell():
+                self.log('SELL EXECUTED, Price: %.2f, Cost: %.2f, Comm: %.2f' %
+                         (order.executed.price,
+                          order.executed.value,
+                          order.executed.comm))
+            self.bar_executed = len(self)
+
+        elif order.status in [order.Canceled, order.Margin, order.Rejected]:
+            self.log('Order Canceled/Margin/Rejected')
+
+        # Reset orders
+        self.order = None
+
+
+class BuyingGainAndSellingLossesStrategy(bt.Strategy):
+    '''
+    A selling strategy of buying gains and selling losses for consecutive declines
+    '''
+    params = dict(
+        p_downdays=4, # Consecutive days of decline
+        p_period_volume=10,
+        p_stoploss=0.082, # Stop loss ratio
+        p_takeprofit=0.116, # Check surplus proportion
+        limit=0.005,
+        limdays=3,
+        limdays2=1000,
+        r=0.25,
+        hold=10,
+        usebracket=False, # use order_target_size
+        switchp1p2=False # switch prices of order1 and order2
+    )
+
+    def __init__(self):
+        self.dataclose = self.datas[0].close
+        self.orefs = list()
+        self.buy_signal = self.datas[0].volume == bt.ind.Highest(self.datas[0].volume, period=self.p.p_period_volume, plot=False)
+
+    def log(self, txt, dt=None):
+        dt = dt or self.datas[0].datetime.date(0)
+        print('%s, %s' % (dt.isoformat(), txt))
+
+    def next(self):
+        if self.orefs: # order list
+            return
+
+        if not self.position:
+            # Obtain the closing price in recent days to determine whether the continuous decline
+            lastcloses = list()
+            total_value = self.broker.get_value()
+            ss = int((total_value / 100) / self.datas[0].close[0]) * 100
+            # for i in range(self.p.p_downdays + 1):
+            #     lastcloses.append(self.dataclose[-i])
+            r = (self.dataclose[-self.p.p_downdays] - self.dataclose[0])/self.dataclose[-self.p.p_downdays]
+            # N consecutive days down And the day's closing price did not fall below 20 percent from N days earlier
+            # if lastcloses == sorted(lastcloses) and r < self.p.r:
+            if self.buy_signal and lastcloses == sorted(lastcloses) and r < self.p.r:
+                # Calculate the buy offer P1, stop loss P2, and stop gain P3
+                close = self.dataclose[0]
+                p1 = close * (1.0 - self.p.limit)
+                p2 = p1 - self.p.p_stoploss * close
+                p3 = p1 + self.p.p_takeprofit * close
+                # Calculate order validity
+                valid1 = datetime.timedelta(self.p.limdays)
+                valid2 = valid3 = datetime.timedelta(self.p.limdays2)
+                # The bracket orders is used to set purchases and sales
+                os = self.buy_bracket(
+                    price=p1, valid=valid1,
+                    stopprice=p2, stopargs=dict(valid=valid2),
+                    limitprice=p3, limitargs=dict(valid=valid3),
+                    size=ss,
+                )
+                # Save the active order
+                self.orefs = [o.ref for o in os]
+
+    def notify_order(self, order):
+        print('{}: Order ref: {} / Type{} / Status {}'.format(
+            self.datetime.date(0),
+            order.ref, 'Buy' * order.isbuy() or 'Sell',
+            order.getstatusname()
+        ))
+
+        if order.status == order.Completed:
+            self.holdstart = len(self)
+
+        if not order.alive() and order.ref in self.orefs:
+            self.orefs.remove(order.ref)
+
+
+class VolumeStrategy(bt.Strategy):
+    params = (('p_period_volume', 5),
+              ('p_sell_ma', 7),
+              ('p_r', 4),)
+
+    def log(self, txt, dt=None):
+        dt = dt or self.datas[0].datetime.date(0)
+        print('%s, %s' % (dt.isoformat(), txt))
+
+    def __init__(self):
+        self.inds = dict()
+        self.start_value = self.broker.get_value()
+        for i, d in enumerate(self.datas):
+            self.inds[d] = dict()
+            self.highest_volume = bt.ind.Highest(d.volume, period=self.p.p_period_volume, plot=False)
+            # buy signal
+            self.inds[d]['buy_con'] = d.volume == self.highest_volume
+            # sell signal
+
+            self.inds[d]['sell_con'] = bt.And(
+                d.volume <= self.highest_volume//self.p.p_r, d.volume > self.highest_volume//(self.p.p_r+1),
+                d.close < bt.ind.SMA(d.close, period=self.p.p_sell_ma)
+            )
+    def next(self):
+        for i, d in enumerate(self.datas):
+            total_value = self.broker.get_value()
+            p_value = (total_value - self.start_value) / self.start_value
+            self.start_value = total_value
+            total_value = self.broker.get_value()
+            ss = int((total_value / 100) / self.datas[0].close[0]) * 100
+            pos = self.getposition(d).size
+
+            if not pos:
+                if self.inds[d]['buy_con']:
+                    self.buy(data=d, size=ss)
+            elif self.inds[d]['sell_con']:
+                self.close(data=d)
+
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
             return
