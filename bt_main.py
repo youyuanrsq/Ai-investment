@@ -1,6 +1,6 @@
 from get_finance_data import get_data, get_jsonparsed_data
 import backtrader as bt
-from strategies import *
+from strategy.strategies import *
 import argparse
 import random
 import csv
