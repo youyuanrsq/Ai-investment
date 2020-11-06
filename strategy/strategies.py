@@ -495,3 +495,105 @@ class VolumeStrategy(bt.Strategy):
 
         # Reset orders
         self.order = None
+
+class MainStrategy(bt.Strategy):
+    params = (
+        ('p_stake', 100),
+        ('macd_p1', 29),
+        ('macd_p2', 47),
+        ('macd_p3', 5),
+        ('p_period_volume', 5),
+        ('p_sell_ma', 8),
+        ('p_period_brin', 7),
+        ('buy_limit_percent', 0.01),
+        ('buy_valid_date', 5),
+        ('stoptype', bt.Order.StopTrail),
+        ('trailamount', 0.0),
+        ('trailpercent', 0.05),
+        ('p_downdays', 4),
+        ('p_fast', 12),
+        ('p_slow', 15)
+
+    )
+
+    def log(self, txt, dt=None):
+        dt = dt or self.datas[0].datetime.date(0)
+        print('%s, %s' % (dt.isoformat(), txt))  # Comment this line when running optimization
+
+    def __init__(self):
+        self.order = None
+        self.dataclose = self.datas[0].close
+        self.dataopen = self.datas[0].open
+        self.datavolume = self.datas[0].volume
+        self.positive = 0
+        self.negative = 0
+        self.pre_value = 0.0
+        # MACD
+        self.macdhist = bt.ind.MACDHisto(self.data,
+                                         period_me1=self.p.macd_p1,
+                                         period_me2=self.p.macd_p2,
+                                         period_signal=self.p.macd_p3)
+        # Brin middle rail
+        boll_mid = bt.ind.BBands(self.dataclose, period=self.p.p_period_brin).mid
+        # Brin buy signal
+        self.brin_volume = bt.And(
+            self.dataopen < boll_mid, self.dataclose > boll_mid,
+            self.datavolume == bt.ind.Highest(self.datavolume, period=self.p.p_period_volume, plot=False)
+        )
+        self.brin_sell = self.dataclose < bt.ind.SMA(self.dataclose, period=self.p.p_sell_ma)
+        # SMA
+        self.slowSMA = bt.ind.SMA(period=self.p.p_slow)
+        self.fastSMA = bt.ind.SMA(period=self.p.p_fast)
+        self.SMA_Cross = bt.ind.CrossOver(self.slowSMA, self.fastSMA)
+
+    def notify_order(self, order):
+        # print('price', order.executed.price)
+        if order.status in [order.Completed]:
+            print('Completed order: {}: Order ref: {} / Type {} / Status {} '.format(
+                self.data.datetime.date(0),
+                order.ref, 'Buy' * order.isbuy() or 'Sell',
+                order.getstatusname()))
+            if order.isbuy():
+                self.pre_value = order.executed.value
+            if order.issell():
+                if order.executed.value - self.pre_value >= 0:
+                    self.positive += 1
+                else:
+                    self.negative += 1
+                # self.pre_value = order.executed.value
+            print('Positive: {}, Negtive: {}'.format(self.positive, self.negative))
+
+            self.order = None
+        if order.status in [order.Expired]:
+            self.order = None
+        print('{}: Order ref: {} / Type {} / Status {}'.format(
+            self.data.datetime.date(0),
+            order.ref, 'Buy' * order.isbuy() or 'Sell',
+            order.getstatusname()))
+
+    def next(self):
+        total_value = self.broker.get_value()
+        ss = int((total_value / 100) / self.datas[0].close[0]) * 100
+        if not self.position:
+            if None == self.order:
+                # consecutive declines
+                lastcloses = list()
+                for i in range(self.p.p_downdays + 1):
+                    lastcloses.append(self.dataclose[-i])
+
+                if self.macdhist > 0 and self.brin_volume and self.SMA_Cross > 0:
+                    self.order = self.buy(size=ss)
+
+
+        elif self.order is None:
+            # if self.macdhist < 0 and self.SMA_Cross < 0 and self.brin_sell:
+            #     self.order = self.close()
+
+            if self.macdhist < 0:
+                # self.order = self.sell(size=self.p.p_stake)
+                self.order = self.close()
+            elif self.SMA_Cross < 0:
+                self.order = self.close()
+                # self.order = self.sell(size=self.p.p_stake)
+            elif self.brin_sell:
+                self.order = self.close()
