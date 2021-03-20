@@ -1,7 +1,7 @@
 import backtrader as bt
 import os
 import datetime
-
+import matplotlib.pyplot as plt
 
 class ModStrategy(bt.Strategy):
     params = dict(
@@ -251,11 +251,11 @@ class ModStrategy(bt.Strategy):
 
 
 
-def main(data_path, symbol):
+def main(data_path, symbol, save_log_path):
     cerebro = bt.Cerebro()
 
     data = bt.feeds.GenericCSVData(
-        dataname=os.path.join(data_path, f'{symbol}.csv'),
+        dataname=os.path.join(data_path, f'{symbol}.CSV'),
         fromdate=datetime.datetime(2016, 3, 14),
         todate=datetime.datetime(2021, 3, 12),
         nullvalue=0.0,
@@ -286,9 +286,15 @@ def main(data_path, symbol):
     cerebro.broker.setcommission(commission=0.000)
     cerebro.run()
     cerebro.plot()
+    plt.savefig(save_log_path+'/'+symbol+'.png')
 
 
 if __name__ == '__main__':
-    data_path = 'data/NASDAQ'
-    symbol = 'FUBO'
-    main(data_path, symbol)
+    symbol = 'FUTU'
+    date_time = str(datetime.date.today())
+    data_path = '../trading_data/day_data/'
+    save_log_path = '../trading_log/' + date_time
+    if not os.path.isdir(save_log_path): 
+       print('new directry has been created')
+       os.system('mkdir '+save_log_path)
+    main(data_path, symbol,save_log_path)

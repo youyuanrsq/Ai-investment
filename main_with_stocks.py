@@ -14,16 +14,15 @@ def from_local_read_company_name(filepath=''):
     return company_names
 
 
-def main(data_folder):
+def main(data_path, company_names):
     cerebro = bt.Cerebro(stdstats=False)
 
-    company_names = from_local_read_company_name(f'D:\\pycharmprojects\\backtrader-general-api\\data\\{data_folder}\\')
 
     for name in company_names:
-        df = pd.read_csv(
-            f"data\\{data_folder}\\{name}.csv", skiprows=0, header=0)
-        df['Date'] = pd.to_datetime(df['Date'])
-        data = bt.feeds.PandasData(
+        try:
+          df = pd.read_csv(data_path+name+'.CSV', skiprows=0, header=0)
+          df['Date'] = pd.to_datetime(df['Date'])
+          data = bt.feeds.PandasData(
             dataname=df,
             datetime=0,  # 使用索引列作日期列
             open=1,  # 开盘价所在列
@@ -35,9 +34,11 @@ def main(data_folder):
             plot=False,
             fromdate=datetime.datetime(2016, 3, 14),
             todate=datetime.datetime(2021, 3, 12),
-        )
-        if len(df) > 300:
+          )
+          if len(df) > 300:
             cerebro.adddata(data)
+        except Exception as e:
+            print(e)
 
     cerebro.addobserver(bt.observers.Value)
     cerebro.addanalyzer(bt.analyzers.SharpeRatio, riskfreerate=0.0)
@@ -73,7 +74,9 @@ def main(data_folder):
 if __name__ == '__main__':
     # 输入的是存放不同指数股票的文件夹名称
     # main('SP_500')
-    main('Dow_jones')
+    test_name = ['FUTU','GAN','AAPL']
+    data_path = '../trading_data/day_data/'
+    main(data_path, test_name)
 
 # total_trade = results[0].analyzers.tradeanalyzer.get_analysis()['total']['closed']
 # gross_pnl = results[0].analyzers.tradeanalyzer.get_analysis()['pnl']['gross']['total']
