@@ -2,6 +2,7 @@ import yfinance as yf
 import backtrader as bt
 import datetime
 import pandas as pd
+import os
 try:
     # For Python 3.0 and later
     from urllib.request import urlopen
@@ -83,22 +84,36 @@ def get_ticker():
 
 
 if __name__ == "__main__":
-   day_data_path = '../trading_data/day_data/'
-   tick_data_path = '../trading_data/tick_data/'
-   data_type = 'tick'
+   save_data = '../trading_data'
+   day_data = '/day_data'
+   tick_data = '/tick_data'
+   if not os.path.isdir(save_data):
+       print('new directry has been created')
+       os.system('mkdir '+save_data)
+   for i in [day_data, tick_data]:
+     if not os.path.isdir(save_data + i):
+        print('new directry has been created')
+        os.system('mkdir '+ save_data + i)
+   
+   day_data_path = save_data + day_data
+   tick_data_path = save_data + tick_data
+   data_type = 'day'
    NYSE_company, NASDAQ_company, AEMX_company = get_ticker()
+   print('starting data downloading for '+ data_type)
    if data_type == 'day':
-      for symbol in NASDAQ_company.keys():
+      for com in [NASDAQ_company,NYSE_company,AEMX_company]:
+        for symbol in com.keys():
+          print(symbol)
           al = get_stock_price_info(symbol, period='max')
           al.to_csv(day_data_path+symbol +'.CSV')
    if data_type == 'tick':
       for com in [NASDAQ_company,NYSE_company,AEMX_company]:
         for symbol in com.keys():
+          print(symbol)
           al = get_stock_price_info(symbol, period='5d',interval = '1m' )
           al.to_csv(tick_data_path+symbol +'.CSV')
    if data_type == 'add_tick':
-      for symbol in NASDAQ_company.keys():
-          
+      for symbol in NASDAQ_company.keys():  
           try: 
              print(symbol)
              bl = pd.read_csv(tick_data_path+symbol +'.CSV')  
