@@ -105,13 +105,13 @@ if __name__ == "__main__":
         for symbol in com.keys():
           print(symbol)
           al = get_stock_price_info(symbol, period='max')
-          al.to_csv(day_data_path+symbol +'.CSV')
+          al.to_csv(day_data_path+'/'+symbol +'.CSV')
    if data_type == 'tick':
       for com in [NASDAQ_company,NYSE_company,AEMX_company]:
         for symbol in com.keys():
           print(symbol)
           al = get_stock_price_info(symbol, period='5d',interval = '1m' )
-          al.to_csv(tick_data_path+symbol +'.CSV')
+          al.to_csv(tick_data_path+'/'+symbol +'.CSV')
    if data_type == 'add_tick':
       for symbol in NASDAQ_company.keys():  
           try: 
@@ -122,7 +122,7 @@ if __name__ == "__main__":
              end = None 
              cl = get_data(stock_name=symbol, start=start, end=end)
              cl = bl.append(cl)
-             cl.to_csv(tick_data_path+symbol +'.CSV') 
+             cl.to_csv(tick_data_path+'/'+symbol +'.CSV') 
           except Exception as r:
              print(r)
 
