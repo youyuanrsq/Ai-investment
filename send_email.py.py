@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[18]:
+# In[47]:
 
 
 import smtplib
@@ -12,81 +12,108 @@ from email import encoders
 import os.path
 
 
-def send_email(email_recipient,
-               email_subject,
-               email_message,
-               attachment_location = ''):
 
-    email_sender = 'BeyondSea_Trading@outlook.com'
-
-    msg = MIMEMultipart()
-    msg['From'] = email_sender
-    msg['To'] = email_recipient
-    msg['Subject'] = email_subject
-
-    msg.attach(MIMEText(email_message, 'plain'))
-
-    if attachment_location != '':
-        filename = os.path.basename(attachment_location)
-        attachment = open(attachment_location, "rb")
-        part = MIMEBase('application', 'octet-stream')
-        part.set_payload(attachment.read())
-        encoders.encode_base64(part)
-        part.add_header('Content-Disposition',
-                        "attachment; filename= %s" % filename)
-        msg.attach(part)
-
-    try:
+class Email:
+    
+    def __init__(self):
         server = smtplib.SMTP('smtp.office365.com', 587)
         server.ehlo()
         server.starttls()
         server.login('BeyondSea_Trading@outlook.com', 'JZBvaan0092')
-        text = msg.as_string()
-        server.sendmail(email_sender, email_recipient, text)
-        print('email sent')
-        server.quit()
-    except Exception as e:
-        print(e)
-        print("SMPT server connection error")
-    return True
+        self.server = server
+        self.email_sender = 'BeyondSea_Trading@outlook.com'
+    
+    def send_email(self, email_recipient,
+                   email_subject,
+                   email_message,
+                   attachment_location = ''):
+
+        msg = MIMEMultipart()
+        msg['From'] = self.email_sender
+        msg['To'] = email_recipient
+        msg['Subject'] = email_subject
+
+        msg.attach(MIMEText(email_message, 'plain'))
+
+        if attachment_location != '':
+            filename = os.path.basename(attachment_location)
+            attachment = open(attachment_location, "rb")
+            part = MIMEBase('application', 'octet-stream')
+            part.set_payload(attachment.read())
+            encoders.encode_base64(part)
+            part.add_header('Content-Disposition',
+                            "attachment; filename= %s" % filename)
+            msg.attach(part)
+
+        try:
+
+            text = msg.as_string()
+            self.server.sendmail(self.email_sender, email_recipient, text)
+            print('email sent')
+            self.server.quit()
+        except Exception as e:
+            print(e)
+            print("SMPT server connection error")
+        return True
 
 
-# In[33]:
+# In[ ]:
 
 
-users = ['409980834@qq.com', '973099449@qq.com', '1033904749@qq.com','1140623243@qq.com', 'qiuansong@qq.com','junelai999@gmail.com',
-'fengyuxian1992@gmail.com', 'orangekate77@gmail.com', 'shaohua@gmail.com']
+'junelai999@gmail.com':'all', 
+      'fengyuxian1992@gmail.com':'all', 
+      'orangekate77@gmail.com':'all', 
+      'shaohua@gmail.com':'all'}
+
+
+# In[36]:
+
+
+
+# define users and what stocks should be provided
+users = {'409980834@qq.com':'all', 
+         '973099449@qq.com':'all', 
+         '1033904749@qq.com':'all', 
+         '1140623243@qq.com':'all', 
+         'qiuansong@qq.com':'all'}
+      
 
 
 # In[35]:
 
 
-test_users = ['409980834@qq.com']
+test_users = {'409980834@qq.com':'all'}
 
 
-# In[30]:
+# In[37]:
 
 
-symble = 'fubo'
-price = str(29)
-stop_loss_range = '26-28'
-stop_earning_range = '30-31'
-direction = 'buy'
-size = '1'
-position = '1'
-risk = '60%'
-s = ','
-subject = symble +' '+ direction
-info = ('Price: ' + price , ' Trading size: ' +  size, ' Current postion: ' + position)
-content = s.join(info)
+def compose_email(symbol = 'fubo',
+                    price = '29',
+                    stop_loss_range = '26-28',
+                    stop_earning_range = '30-31',
+                    direction = 'buy',
+                    size = '1',
+                    position = '1',
+                    risk = '60%'
+                ):
+    s = ','
+    subject = symbol +' '+ direction
+    info = ('Price: ' + price , ' Trading size: ' +  size, ' Current postion: ' + position)
+    content = s.join(info)
+    return subject, content
 
 
-# In[40]:
+# In[51]:
 
 
-for user in test_users:
-    send_email(user,
-               subject,
-               content, 
-               '')
 
+for user in users.keys():
+    print('send email to', user)
+    if users[user] == 'all':
+        subject, content =  compose_email()
+        e= Email()
+        e.send_email(user,
+                   subject,
+                   content, 
+                   '')
