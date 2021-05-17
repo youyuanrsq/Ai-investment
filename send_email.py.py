@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[172]:
+# In[97]:
 
 
 import smtplib
@@ -14,6 +14,8 @@ import numpy as np
 import glob
 import pandas as pd
 import datetime
+import json
+from datetime import date
 
 class Email:
     
@@ -70,10 +72,11 @@ def compose_email(trading_action):
     s = ','
     direction = trading_action['Direction']
     price = round(trading_action['Price'],3)
-    stop_loss_range = round(trading_action['stop_loss_range'] ,3)
-    stop_earning_range = round(trading_action['stop_earning_range'] ,3)
+  
     subject = direction +' '+ trading_action['Symbol'] + ' at price: ' + str(price)
     if direction == 'buy':
+        stop_loss_range = round(trading_action['stop_loss_range'] ,3)
+        stop_earning_range = round(trading_action['stop_earning_range'] ,3)
         info = ('Price: ' + str(price) , ' \nTrading size: ' +  str(trading_action['Size']), ' \nCurrent postion: ' +  str(trading_action['Position']),
                 ' \nStop_loss_price: ' + str(stop_loss_range),
                 ' \nStop_earning_range: ' + str(stop_earning_range)
@@ -86,24 +89,29 @@ def compose_email(trading_action):
     return subject, content
 
 
-# In[169]:
+def compose_summary_email(trading_info):
+    s = ','
+    today = date.today()
+    d1 = today.strftime("%d/%m/%Y")
+    subject = d1 + ' Trading Summary'
+    content = []
+    for i in trading_info:
+        info = ('\nSymbol: ' + i[0] , ' \nTrading earning ratio: ' +  str(i[1]), ' \nStock change ratio: ' +  str(i[2])
+       )
+        info = s.join(info)
+        content.append(info)
+    content = s.join(content)
+    return subject, content
+        
+        
 
 
-a = round(0.92,2)
-
-
-# In[170]:
-
-
-a
-
-
-# In[143]:
+# In[68]:
 
 
 
 # define users and what stocks should be provided
-users = {'409980834@qq.com':'all'}
+users = {'jiangzhubo1992@gmail.com':'all'}
 #          '973099449@qq.com':'all', 
 #          '1033904749@qq.com':'all', 
 #          '1140623243@qq.com':'all', 
@@ -115,15 +123,18 @@ users = {'409980834@qq.com':'all'}
       
 
 
+# step 1 :send action points to users
+
 # In[ ]:
 
 
 
+##
 recent_stock_update = {}
 start_time = change_time_to_number(datetime.date.today().strftime("%Y-%m-%d 09:30:00"))
 while True:
     for path in glob.glob('/home/zhubo/Documents/fda_check/test2/comparie/*.json'):
-      #  try:
+        try:
             stock_path = path
             stock = stock_path.split('/')[-1].split('.')[0]
             if stock not in list(recent_stock_update.keys()):
@@ -145,11 +156,73 @@ while True:
                                    content, 
                                    '')
                     print('send email to', user)
-       # except Exception as e:
-        #    print(e)
+        except Exception as e:
+            print(e)
 
 
-# In[ ]:
+# In[101]:
 
 
+def return_stock_summary(path):
+        stock_path = path
+        stock = stock_path.split('/')[-1].split('.')[0]
+        with open(stock_path) as f:       
+               data = json.load(f)
+        time_key = [[change_time_to_number(time), time] for time in list(data.keys()) if time not in ['open','close']]
+        trade_time = sorted(time_key , key = lambda x : x[0])
+        if  data[trade_time[0][1]]['Direction'] == 'buy':
+            open_postion = data[trade_time[0][1]]['Position'] -1
+        elif  data[trade_time[0][1]]['Direction'] == 'sell':
+            open_postion = data[trade_time[0][1]]['Position'] +1
 
+        total_buy = open_postion * data['open'] 
+        stock_change_ratio = (data['close'] - data['open']) * 100 / data['open']
+        total_sell = 0 
+        buy_size = open_postion
+        sell_size = 0
+        for i in trade_time:
+            trade_index = i[1]
+            if data[trade_index]['Direction'] == 'buy':
+               total_buy += data[trade_index]['Price'] * data[trade_index]['Size']
+               buy_size += data[trade_index]['Size']
+            elif data[trade_index]['Direction'] == 'sell':
+               total_sell += data[trade_index]['Price'] * data[trade_index]['Size']
+               sell_size += data[trade_index]['Size']
+        if buy_size >= sell_size:
+            close_size = buy_size - sell_size
+            close_sell = close_size * data['close']
+            total_sell += close_sell     
+            final_earning = total_sell - total_buy
+            print(close_size , data['open'])
+            if close_size > 0:
+               basic_earning_ratio = final_earning * 100 / (close_size * data['open'])
+            else:
+               basic_earning_ratio = final_earning * 100 / (open_postion * data['open']) 
+
+            print(data[trade_index]['Symbol']+' earning', final_earning, basic_earning_ratio, stock_change_ratio)
+            return data[trade_index]['Symbol'], round(basic_earning_ratio ,2), round(stock_change_ratio,2)
+        if buy_size < sell_size:
+            print('something wrong with position')
+            return data[trade_index]['Symbol'], 0, round(stock_change_ratio,2)
+def send_summary(log_path):
+    trading_info = []
+    for path in glob.glob(log_path + '*.json'):
+        trading_info.append(return_stock_summary(path))
+    subject, content = compose_summary_email(trading_info)
+    for user in users.keys():
+        print(subject, content)
+        if users[user] == 'all':
+            e= Email()
+            e.send_email(user,
+                       subject,
+                       content, 
+                       '')
+        print('send email to', user)
+
+
+# Step 2: send summary email to user
+
+# In[103]:
+
+
+send_summary('/home/zhubo/Documents/fda_check/test2/comparie/')
