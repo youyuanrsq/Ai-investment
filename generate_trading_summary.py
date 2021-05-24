@@ -162,6 +162,7 @@ def write_summary(log_save_path ,date):
 args:
     log save_path: where you store all your daily trading json file
     all_log_file : the location of all_postion.csv from IB
+    date: date of trading
 output:
     a simple csv with daily trading pnl and total pnl 
 
