@@ -130,16 +130,24 @@ def trade_summary(all_log_file, log_path, date):
 
 def get_stock_info(symbol, date = "2021-05-22"  ): 
     today = datetime.datetime.strptime(date,'%Y-%m-%d')
-    pre_day = today - datetime.timedelta(days=1)
-
-    data = yf.download(symbol, start= pre_day, end=today)
+    day = 0
+    break_flag = 1
+    while break_flag:
+        day +=1
+        try:
+          pre_day = today - datetime.timedelta(days=day)
+          data = yf.download(symbol, start= pre_day, end=today)
+        
    # print(data)
-    today = today - datetime.timedelta(days=1)
-    pre_day = pre_day - datetime.timedelta(days=1)
-    pre_day = str(pre_day).split(' ')[0]
-    today = str(today).split(' ')[0]
-    pre_close = data['Close'][pre_day]
-    today_close = data['Close'][today]
+          str_today = today - datetime.timedelta(days=1)
+          str_pre_day = pre_day - datetime.timedelta(days=1)
+          str_pre_day = str(str_pre_day).split(' ')[0]
+          str_today = str(str_today).split(' ')[0]
+          pre_close = data['Close'][str_pre_day]
+          today_close = data['Close'][str_today]
+          break_flag = 0
+        except:
+            pass
     
     return data, pre_close, today_close
 
@@ -150,7 +158,7 @@ def write_summary(log_save_path ,date):
     for x in trade_log.keys():
         y = trade_log[x]
         #print(y['position'], y['day pnl'], y['day pnl ratio'], y['pnl'])
-        f.writerow([x, y['position'], y['day pnl'], y['day pnl ratio'], y['pnl']])
+        f.writerow([x, y['position'], y['day pnl'], round(y['day pnl ratio'],2), y['pnl']])
     print('the trading summary is saved in ', log_save_path + date+"_trading_summary.csv")
     
 
@@ -172,9 +180,9 @@ output:
 # In[27]:
 
 
-log_save_path = '/home/zhubo/Documents/fda_check/test2/comparie/'
+log_save_path='/mnt/c/Users/zhubo/Documents/trading_data/2021-06-01/'
 all_log_file = log_save_path + 'all_position.csv'
-date = '2021-05-21'
+date = '2021-06-02'
 write_summary(log_save_path, date)
            
 
