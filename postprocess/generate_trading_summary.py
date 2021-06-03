@@ -80,6 +80,7 @@ class trade_daily_summary:
             stock_info[symbol]['position'] = close_size
             stock_info[symbol]['day pnl'] = round(final_earning, 2)
             stock_info[symbol]['day pnl ratio'] = round(basic_earning_ratio, 2)
+            stock_info[symbol]['pnl'] = stock_info[symbol]['day pnl']
         if buy_size < sell_size:
             print('something wrong with position')
         return stock_info
@@ -122,13 +123,18 @@ def trade_summary(all_log_file, log_path, date):
     for path in glob.glob(log_path + '*.json'):
         trading_info.update(trade_daily_summary(path).return_stock_summary())
     all_trade_info = get_untrade_info(all_log_file, date = date)
+    
     for key in trading_info.keys():
-        trading_info[key]['pnl'] = all_trade_info[key]['pnl']
+        try:
+           trading_info[key]['pnl'] = all_trade_info[key]['pnl']
+        except Exception as e:
+            print(e)
     all_trade_info.update(trading_info)
     return all_trade_info
 
 
-def get_stock_info(symbol, date = "2021-05-22"  ): 
+def get_stock_info(symbol, date = "2021-05-22"  ):
+    print('get close price for', symbol)
     today = datetime.datetime.strptime(date,'%Y-%m-%d')
     day = 0
     break_flag = 1
@@ -146,8 +152,8 @@ def get_stock_info(symbol, date = "2021-05-22"  ):
           pre_close = data['Close'][str_pre_day]
           today_close = data['Close'][str_today]
           break_flag = 0
-        except:
-            pass
+        except Exception as e:
+            print(e)
     
     return data, pre_close, today_close
 
