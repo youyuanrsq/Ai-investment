@@ -1,4 +1,0 @@
-atr_period:4 volume_rate:0.9 atr_level:1.0 sharpe_ratio:1.651898139389696 sharpe_ratio:1.651898139389696 max_drawdown:24.774803634787865 total_trade:756 gross_pnl:72450.65424660096 won:324 won_rate:0.42857142857142855
-atr_period:4 volume_rate:1.0 atr_level:1.0 sharpe_ratio:1.5056781629251035 sharpe_ratio:1.5056781629251035 max_drawdown:25.618111483929162 total_trade:728 gross_pnl:69185.78674418492 won:305 won_rate:0.41895604395604397
-atr_period:4 volume_rate:1.1 atr_level:1.0 sharpe_ratio:1.4696380535863227 sharpe_ratio:1.4696380535863227 max_drawdown:26.107385356180643 total_trade:694 gross_pnl:65109.07569640195 won:292 won_rate:0.4207492795389049
-
