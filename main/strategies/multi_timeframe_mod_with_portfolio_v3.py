@@ -4,6 +4,40 @@ import datetime
 import pandas as pd
 import csv
 import sys
+from Stop_loss import atr_range
+
+def is_td(close_d, high_d):
+    td = 1
+    td_index = [[0, -4], [-1, -5], [-2. - 6], [-3, -7], [-4, -8], [-5, -9], [-6, 10], [-7, -11], [-8, -12], [-9, -13]]
+    for i in td_index:
+        if close_d[i[0]] < close_d[i[1]]:
+            td = 0
+    if td:
+        six_seven_max = max(high_d[-2], high_d[-3])
+        if high_d[0] > six_seven_max or high_d[-1] > six_seven_max:
+            return True
+        else:
+            return False
+    else:
+        return False
+
+
+
+
+def winter_summer_trading_time(date_now, year, month, day):
+    if datetime.date(year, 3, 15) <= date_now < datetime.date(year, 11, 1):
+        start_datetime = datetime.datetime(year, month, day, 9, 31, 0)
+        end_datetime = datetime.datetime(year, month, day, 16, 0, 0)
+        trade_datetime = datetime.datetime(year, month, day, 9, 31, 0)
+
+    # 冬令时
+
+    elif datetime.date(year, 11, 1) <= date_now <= datetime.date(year, 12, 31) or \
+         datetime.date(year, 1, 1) <= date_now <= datetime.date(year, 3, 14):
+         start_datetime = datetime.datetime(year, month, day, 10, 31, 0)
+         end_datetime = datetime.datetime(year, month, day, 17, 0, 0)
+         trade_datetime = datetime.datetime(year, month, day, 10, 31, 0)
+    return start_datetime,  end_datetime, trade_datetime
 
 
 class PortfolioModStrategy(bt.Strategy):
@@ -87,20 +121,6 @@ class PortfolioModStrategy(bt.Strategy):
         else:
             return close_d
 
-    # 判断是否为九转序列
-    def is_td(self, close_d, high_d):
-        if close_d[0] > close_d[-4] and close_d[-1] > close_d[-5] and close_d[-2] > close_d[-6] and close_d[-3] > \
-                close_d[-7] and \
-                close_d[-4] > close_d[-8] and close_d[-5] > close_d[-9] and close_d[-6] > close_d[-10] and close_d[-7] > \
-                close_d[-11] and \
-                close_d[-8] > close_d[-12] and close_d[-9] > close_d[-13]:
-            six_seven_max = max(high_d[-2], high_d[-3])
-            if high_d[0] > six_seven_max or high_d[-1] > six_seven_max:
-                return True
-            else:
-                return False
-        else:
-            return False
 
     def next(self):
         if self.order:
@@ -116,7 +136,7 @@ class PortfolioModStrategy(bt.Strategy):
             high_d = self.inds_d[i + 1]['high']
             volume_d = self.inds_d[i + 1]['volume']
             # atr = self.inds_m[i]['atr']
-            atr = self.inds_d[i+1]['atr']
+            atr = self.inds_d[i + 1]['atr']
             relative_max_price = self.inds_m[i]['relative_max_price']
 
             # 获取分钟行情数据的当前bar的年月日以及当前时间
@@ -125,122 +145,106 @@ class PortfolioModStrategy(bt.Strategy):
             day = int(self.datas[i].datetime.datetime(0).day)
             date_now = self.datas[i].datetime.date(0)
             datetime_now = self.datas[i].datetime.datetime(0)
+            start_datetime,  end_datetime, trade_datetime = winter_summer_trading_time(date_now, year, month, day)
 
-            # 夏令时
-            if datetime.date(year, 3, 15) <= date_now < datetime.date(year, 11, 1):
-                start_datetime = datetime.datetime(year, month, day, 9, 31, 0)
-                end_datetime = datetime.datetime(year, month, day, 16, 0, 0)
-                trade_datetime = datetime.datetime(year, month, day, 9, 31, 0)
-
-            # 冬令时
-            elif datetime.date(year, 11, 1) <= date_now <= datetime.date(year, 12, 31) or \
-                    datetime.date(year, 1, 1) <= date_now <= datetime.date(year, 3, 14):
-                start_datetime = datetime.datetime(year, month, day, 10, 31, 0)
-                end_datetime = datetime.datetime(year, month, day, 17, 0, 0)
-                trade_datetime = datetime.datetime(year, month, day, 10, 31, 0)
-                # 更新次低价
-                if start_datetime == datetime_now:
-                    # 根据日线数据的阴阳线来更新次低价
-                    if close_d[0] < open_d[0]:
-                        self.inds_m[i]['relative_min_price'].append(max(close_d[0], low_d[0]))
-                        price = open_d[0]
-                    else:
-                        self.inds_m[i]['relative_min_price'].append(max(open_d[0], low_d[0]))
-                        price = close_d[0]
-                    relative_max_price_today = self.find_relative_max_price(open_d[0], close_d[0])
-                    self.inds_m[i]['relative_max_price'].append(relative_max_price_today)
-            if len(self.inds_m[i]['relative_max_price']) >= 13:
-                # 三段
-                if relative_max_price[-2] > relative_max_price[-1]:
-                    self.inds_m[i]['buy_signal']['three'] = 1
+            # 更新次低价
+            if start_datetime == datetime_now:
+                # 根据日线数据的阴阳线来更新次低价
+                if close_d[0] < open_d[0]:
+                    self.inds_m[i]['relative_min_price'].append(max(close_d[0], low_d[0]))
+                    price = open_d[0]
                 else:
-                    self.inds_m[i]['buy_signal']['three'] = 0
-
-                # 四段
-                if relative_max_price[-1] < relative_max_price[-2] < relative_max_price[-3] or \
-                        relative_max_price[-2] < relative_max_price[-1] < relative_max_price[-3]:
-                    self.inds_m[i]['buy_signal']['four'] = 1
-                else:
-                    self.inds_m[i]['buy_signal']['four'] = 0
-                total_signal_value = 0
-                for j in self.inds_m[i]['buy_signal'].values():
-                    total_signal_value += j
-
-                # 在分钟数据上买卖，获取分钟行情数据的position
-                position = self.getposition(self.datas[i]).size
-                # 获取账户的现金
-                cash = self.broker.get_cash()
-
-                # print(self.data.datetime.datetime(0))
-
-                # start_datetime = None
-                # end_datetime = None
-                # trade_datetime = None
-
-                # 在盘中进行交易
-
-                if start_datetime <= datetime_now <= end_datetime:
-                    self.inds_m[i]['accumulative_volume'] += volume_m[0]
-                    threshold = max(relative_max_price[-1], relative_max_price[-2])
-                    # 买入
-                    if total_signal_value > 0 and close_m[0] >= relative_max_price[-1] and \
-                            self.inds_m[i]['last_buy_date'] < datetime.date(year, month, day) and \
-                            self.inds_m[i]['accumulative_volume'] > volume_d[0] * self.p.volume_rate and position <= 0:
-                        # print(self.inds_m[i]['accumulative_volume'], volume_d[-1])
-                        self.inds_m[i]['last_buy_date'] = datetime.date(year, month, day)
-                        self.inds_m[i]['flag'] = True
-                        self.inds_m[i]['buy_price'] = close_m[0]
-
-                        self.buy(data=self.datas[i], price=close_m[0], size=self.p.fix_size)
-                    elif total_signal_value > 0 and close_m[0] >= threshold and \
-                            self.inds_m[i]['last_buy_date'] < datetime.date(year, month, day) and \
-                            self.inds_m[i]['accumulative_volume'] > volume_d[0] * self.p.volume_rate and position <= 0:
-                        # size = int(cash / close_m[0] * 0.7)
-                        # print(size)
-                        self.inds_m[i]['last_buy_date'] = datetime.date(year, month, day)
-                        self.inds_m[i]['flag'] = True
-                        self.inds_m[i]['buy_price'] = close_m[0]
-                        self.buy(data=self.datas[i], price=close_m[0], size=self.p.fix_size)
-                    # ATR 止损
-                    if open_m[0] < self.inds_m[i]['relative_min_price'][-1] - self.atr_level * atr[0] and position > 0:
-                        if date_now > self.inds_m[i]['last_buy_date']:
-                            self.sell(data=self.datas[i], size=position)
-                            self.inds_m[i]['flag'] = False
-                        # print(open_m[0], self.relative_min_price[-1], self.atr[0])
-                    elif close_m[0] < self.inds_m[i]['relative_min_price'][-1] - self.atr_level * atr[
-                        0] and position > 0:
-                        if date_now > self.inds_m[i]['last_buy_date']:
-                            self.sell(data=self.datas[i], size=position)
-                            self.inds_m[i]['flag'] = False
-                    # # # 防止阴跌止损
-                    # elif close_m[0] <= self.inds_m[i]['after_buy_high_price'] * (1 - 0.1) and position > 0:
-                    #     self.sell(data=self.datas[i], size=position)
-                    #     self.inds_m[i]['flag'] = False
-                    # 日内止损
-                    # if close_m[0] <= self.inds_m[i]['buy_price'] * (1 - 0.01) and position > 0:
-                    #     self.sell(data=self.datas[i], size=position)
-                    #     self.inds_m[i]['flag'] = False
-                    # 九转序列
-                    # is_td = self.is_td(close_d, high_d)
-                    # if is_td and position > 0:
-                    #     self.sell(data=self.datas[i], size=position)
-                    #     self.inds_m[i]['flag'] = False
-                    #     print('jiuzhuan')
-                else:
-                    self.inds_m[i]['accumulative_volume'] = 0
-            # 更新次高价, 每天只更新一次，所以在开盘时更新
-            # if datetime_now == start_datetime:
-                # relative_max_price_today = self.find_relative_max_price(open_d[0], close_d[0])
-                # self.inds_m[i]['relative_max_price'].append(relative_max_price_today)
-                # print(self.inds_m[i]['relative_max_price'])
-
-
-            # 更新买入后的高点， 买入后更新，卖出后清零重头算起
-            if self.inds_m[i]['flag']:
-                if self.inds_m[i]['after_buy_high_price'] < self.inds_m[i]['relative_max_price'][-1]:
-                    self.inds_m[i]['after_buy_high_price'] = self.inds_m[i]['relative_max_price'][-1]
+                    self.inds_m[i]['relative_min_price'].append(max(open_d[0], low_d[0]))
+                    price = close_d[0]
+                relative_max_price_today = self.find_relative_max_price(open_d[0], close_d[0])
+                self.inds_m[i]['relative_max_price'].append(relative_max_price_today)
+        if len(self.inds_m[i]['relative_max_price']) >= 13:
+            # 三段
+            if relative_max_price[-2] > relative_max_price[-1]:
+                self.inds_m[i]['buy_signal']['three'] = 1
             else:
-                self.inds_m[i]['after_buy_high_price'] = 0
+                self.inds_m[i]['buy_signal']['three'] = 0
+
+            # 四段
+            if relative_max_price[-1] < relative_max_price[-2] < relative_max_price[-3] or \
+                    relative_max_price[-2] < relative_max_price[-1] < relative_max_price[-3]:
+                self.inds_m[i]['buy_signal']['four'] = 1
+            else:
+                self.inds_m[i]['buy_signal']['four'] = 0
+            total_signal_value = 0
+            for j in self.inds_m[i]['buy_signal'].values():
+                total_signal_value += j
+
+            # 在分钟数据上买卖，获取分钟行情数据的position
+            position = self.getposition(self.datas[i]).size
+            # 获取账户的现金
+            cash = self.broker.get_cash()
+
+            # print(self.data.datetime.datetime(0))
+
+            # start_datetime = None
+            # end_datetime = None
+            # trade_datetime = None
+
+            # 在盘中进行交易
+
+            if start_datetime <= datetime_now <= end_datetime:
+                self.inds_m[i]['accumulative_volume'] += volume_m[0]
+                threshold = max(relative_max_price[-1], relative_max_price[-2])
+                # 买入
+                if total_signal_value > 0 and close_m[0] >= relative_max_price[-1] and \
+                        self.inds_m[i]['last_buy_date'] < datetime.date(year, month, day) and \
+                        self.inds_m[i]['accumulative_volume'] > volume_d[0] * self.p.volume_rate and position <= 0:
+                    # print(self.inds_m[i]['accumulative_volume'], volume_d[-1])
+                    self.inds_m[i]['last_buy_date'] = datetime.date(year, month, day)
+                    self.inds_m[i]['flag'] = True
+                    self.inds_m[i]['buy_price'] = close_m[0]
+
+                    self.buy(data=self.datas[i], price=close_m[0], size=self.p.fix_size)
+                elif total_signal_value > 0 and close_m[0] >= threshold and \
+                        self.inds_m[i]['last_buy_date'] < datetime.date(year, month, day) and \
+                        self.inds_m[i]['accumulative_volume'] > volume_d[0] * self.p.volume_rate and position <= 0:
+                    # size = int(cash / close_m[0] * 0.7)
+                    # print(size)
+                    self.inds_m[i]['last_buy_date'] = datetime.date(year, month, day)
+                    self.inds_m[i]['flag'] = True
+                    self.inds_m[i]['buy_price'] = close_m[0]
+                    self.buy(data=self.datas[i], price=close_m[0], size=self.p.fix_size)
+                # ATR 止损
+                atr_flag = atr_range(atr[0], self.atr_level, self.inds_m[i]['relative_min_price'][-1])
+                if (open_m[0] < atr_flag or close_m[0] < atr_flag) and position > 0:
+                    if date_now > self.inds_m[i]['last_buy_date']:
+                        self.sell(data=self.datas[i], size=position)
+                        self.inds_m[i]['flag'] = False
+
+                # # # 防止阴跌止损
+                # elif close_m[0] <= self.inds_m[i]['after_buy_high_price'] * (1 - 0.1) and position > 0:
+                #     self.sell(data=self.datas[i], size=position)
+                #     self.inds_m[i]['flag'] = False
+                # 日内止损
+                # if close_m[0] <= self.inds_m[i]['buy_price'] * (1 - 0.01) and position > 0:
+                #     self.sell(data=self.datas[i], size=position)
+                #     self.inds_m[i]['flag'] = False
+                # 九转序列
+                # is_td = self.is_td(close_d, high_d)
+                # if is_td and position > 0:
+                #     self.sell(data=self.datas[i], size=position)
+                #     self.inds_m[i]['flag'] = False
+                #     print('jiuzhuan')
+            else:
+                self.inds_m[i]['accumulative_volume'] = 0
+        # 更新次高价, 每天只更新一次，所以在开盘时更新
+        # if datetime_now == start_datetime:
+        # relative_max_price_today = self.find_relative_max_price(open_d[0], close_d[0])
+        # self.inds_m[i]['relative_max_price'].append(relative_max_price_today)
+        # print(self.inds_m[i]['relative_max_price'])
+
+        # 更新买入后的高点， 买入后更新，卖出后清零重头算起
+        if self.inds_m[i]['flag']:
+            if self.inds_m[i]['after_buy_high_price'] < self.inds_m[i]['relative_max_price'][-1]:
+                self.inds_m[i]['after_buy_high_price'] = self.inds_m[i]['relative_max_price'][-1]
+        else:
+            self.inds_m[i]['after_buy_high_price'] = 0
 
 
 def from_local_read_company_name(filepath='D:\\pycharmprojects\\backtrader-general-api\\data\\stocks\\'):
@@ -255,18 +259,22 @@ def from_local_read_company_name(filepath='D:\\pycharmprojects\\backtrader-gener
         company_names.append(company)
     return company_names
 
-def main(symbols, data_path_1m, data_path_1d, p_atr_period, volume_rate, atr_level):
-    # cerebro = bt.Cerebro()
-    cerebro = bt.MyCerebro()
-    for symbol in symbols:
-        #加载分钟线数据
-        df = pd.read_csv(
-            os.path.join(data_path_1m, f'{symbol}.CSV'), skiprows=0, header=0)
-        # print(df.head)
-        df = df[['time', 'open', 'high', 'low', 'close', 'volume']]
-        df['time'] = pd.to_datetime(df['time'])
-        df = df.sort_index(ascending=False)
 
+def load_data(data_path):
+    df = pd.read_csv(data_path, skiprows=0, header=0)
+    df = df[['time', 'open', 'high', 'low', 'close', 'volume']]
+    df['time'] = pd.to_datetime(df['time'])
+    df = df.sort_index(ascending=False)
+    return df
+
+
+def main(symbols, data_path_1m, data_path_1d, p_atr_period, volume_rate, atr_level):
+    cerebro = bt.Cerebro()
+    # cerebro = bt.MyCerebro()
+    for symbol in symbols:
+        # 加载分钟线数据
+        data_path = os.path.join(data_path_1m, f'{symbol}.CSV')
+        df = load_data(data_path)
         data = bt.feeds.PandasData(
             dataname=df,
             datetime=0,  # 使用索引列作日期列
@@ -283,12 +291,8 @@ def main(symbols, data_path_1m, data_path_1d, p_atr_period, volume_rate, atr_lev
         # 至少要有60000根bar
         if len(df) > 60000:
             # print(symbol)
-            df2 = pd.read_csv(
-                os.path.join(data_path_1d, f'{symbol}.CSV'), skiprows=0, header=0)
-            # print(df2.head)
-            df2 = df2[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
-            df2['Date'] = pd.to_datetime(df2['Date'])
-            # df2 = df2.sort_index(ascending=False)
+            data_path = os.path.join(data_path_1d, f'{symbol}.CSV')
+            df2 = load_data(data_path)
 
             data2 = bt.feeds.PandasData(
                 dataname=df2,
@@ -313,7 +317,7 @@ def main(symbols, data_path_1m, data_path_1d, p_atr_period, volume_rate, atr_lev
     cerebro.addanalyzer(bt.analyzers.Returns)
     cerebro.addanalyzer(bt.analyzers.DrawDown)
     cerebro.addanalyzer(bt.analyzers.TradeAnalyzer)
-    cerebro.addstrategy(PortfolioModStrategy,  p_atr_period=p_atr_period, volume_rate=volume_rate, atr_level=atr_level)
+    cerebro.addstrategy(PortfolioModStrategy, p_atr_period=p_atr_period, volume_rate=volume_rate, atr_level=atr_level)
     cerebro.broker.set_cash(100000.)
     cerebro.broker.set_coc(True)
     cerebro.broker.set_slippage_fixed(fixed=5)
@@ -330,28 +334,31 @@ def main(symbols, data_path_1m, data_path_1d, p_atr_period, volume_rate, atr_lev
     gross_pnl = results[0].analyzers.tradeanalyzer.get_analysis()['pnl']['gross']['total']
     won = results[0].analyzers.tradeanalyzer.get_analysis()['won']['total']
     won_rate = won / total_trade
-    print('sharpe_ratio', sharpe_ratio, 'max_drawdown', max_drawdown, 'gross_pnl', gross_pnl, 'won', won, 'won_rate', won_rate)
+    print('sharpe_ratio', sharpe_ratio, 'max_drawdown', max_drawdown, 'gross_pnl', gross_pnl, 'won', won, 'won_rate',
+          won_rate)
 
-    with open('../log/multi_timeframe_mod_with_portfolio_v3_test7.txt', 'a+') as f:
+    with open('multi_timeframe_mod_with_portfolio_v3_test7.txt', 'a+') as f:
         f.writelines('atr_period:' + str(p_atr_period) + ' ')
         f.writelines('volume_rate:' + str(volume_rate) + ' ')
         f.writelines('atr_level:' + str(atr_level) + ' ')
         f.writelines('sharpe_ratio:' + str(sharpe_ratio) + ' ')
         # f.writelines('sharpe_ratio:' + str(sharpe_ratio) + ' ')
-        f.writelines('max_drawdown:' +  str(max_drawdown) + ' ')
+        f.writelines('max_drawdown:' + str(max_drawdown) + ' ')
         f.writelines('total_trade:' + str(total_trade) + ' ')
         f.writelines('gross_pnl:' + str(gross_pnl) + ' ')
-        f.writelines('won:'+  str(won) + ' ')
-        f.writelines('won_rate:' +  str(won_rate) + '\n')
+        f.writelines('won:' + str(won) + ' ')
+        f.writelines('won_rate:' + str(won_rate) + '\n')
     # cerebro.plot(style='candle')
 
+
 def floatrange(start, stop, steps):
-    return [start+float(i)*(stop-start)/(float(steps)-1) for i in range(steps)]
+    return [start + float(i) * (stop - start) / (float(steps) - 1) for i in range(steps)]
+
 
 if __name__ == '__main__':
-    data_path_1m = '/home/zhubo/Desktop/trading_data/top100/1min/'
-    data_path_1d = '/home/zhubo/Desktop/trading_data/top100/day/'
-    symbols = from_local_read_company_name(data_path_1m)
+    data_path_1m = '../../test_data/1min/'
+    data_path_1d = '../../test_data/day/'
+    symbols = from_local_read_company_name(data_path_1d)
     # print(symbols)S
     # print(len(symbols))
     # symbols = ['RFP']
@@ -361,5 +368,5 @@ if __name__ == '__main__':
     for atr_period in range(7, 15):
         for volume_rate in floatrange(0.5, 1.5, 11):
             for atr_level in floatrange(0.5, 1.2, 8):
-                main(symbols=symbols, data_path_1m=data_path_1m, data_path_1d=data_path_1d, p_atr_period=atr_period, volume_rate=volume_rate, atr_level=atr_level)
-
+                main(symbols=symbols, data_path_1m=data_path_1m, data_path_1d=data_path_1d, p_atr_period=atr_period,
+                     volume_rate=volume_rate, atr_level=atr_level)
