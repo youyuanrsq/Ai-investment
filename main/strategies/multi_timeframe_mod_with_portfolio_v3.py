@@ -360,7 +360,7 @@ if __name__ == '__main__':
     data_path_1d = '../../test_data/day/'
     symbols = from_local_read_company_name(data_path_1d)
     # main(symbols=symbols, data_path_1m=data_path_1m, data_path_1d=data_path_1d, p_atr_period=10, volume_rate=0.6, atr_level=1.2)
-    # print(datetime.datetime.now())
+
     for atr_period in range(7, 15):
         for volume_rate in floatrange(0.5, 1.5, 11):
             for atr_level in floatrange(0.5, 1.2, 8):
