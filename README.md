@@ -4,10 +4,17 @@ What is BeyondSea:
 
 BeyondSea is Fintech company which is diving into the sea of trading strategies. We hope to use knowledge to provide suggestions for those private traders.
 
-This whole project is made up by 4 parts:
-  1. Strategies Research
-  2. Feature Engineering
-  3. Back Testing
-  4. Paper trading
-  5. Data analysis
+Project paths:
+1. 因子工程：
+   Ai-investment/main/indicator/
+2. 截面选股法：
+   Ai-investment/main/strategies/Multi_features_stock_selection/
+3. 三四段战法：
+   /Ai-investment/main/strategies/three_four_strategy
+4. vn 实盘
+     
+5. 测试数据：
+   Ai-investment/test_data/ 
+6. Database:
+    Ai-investment/Database/
 
