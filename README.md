@@ -17,4 +17,10 @@ Project paths:
    Ai-investment/test_data/ 
 6. Database:
     Ai-investment/Database/
+7. Sending Email:
+    Ai-investment/main/postprocess/send_email/
+8. trading_summary:
+   Ai-investment/main/postprocess/
+9. Other test:
+   Ai-investment/main/validation/
 
