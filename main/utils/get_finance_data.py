@@ -96,10 +96,10 @@ def read_ark():
 
 if __name__ == "__main__":
 
-    dataset = 'nasdaq100'
+    dataset = 'top5000'
     intraday_data_type = []  # ['1min','15min','45min','60min']
     day_data_type = ['day']  # ,'week','month']
-    save_data = '../../trading_data'
+    save_data = '../../../trading_data'
 
     if not os.path.isdir(save_data):
         print('new directry has been created')
@@ -130,6 +130,8 @@ if __name__ == "__main__":
         download_dataset = pd.read_csv('../../test_data/dataset/russell-1000-index-05-21-2021.csv')['Symbol']
     elif dataset == 'nasdaq100':
         download_dataset = pd.read_csv('../../test_data/dataset/nasdaq100-05-21.csv')['Symbol']
+    elif dataset == 'top5000':
+        download_dataset = pd.read_csv('../../test_data/dataset/earnings_calendar.csv')['symbol']
 
     print('starting data downloading for ' + dataset)
     if 'day' in day_data_type:
@@ -213,5 +215,5 @@ if __name__ == "__main__":
                                         save_data + '/' + dataset + '/' + interval + '/' + symbol + '_' + interval + '.CSV')
                 except Exception as e:
                     print(e)
-        os.system("rm ../../trading_data/" + dataset + "/*/*month*")
-        os.system("zip -r " + dataset + " ../../trading_data/" + dataset)
+        os.system("rm ../../../trading_data/" + dataset + "/*/*month*")
+        os.system("zip -r " + dataset + " ../../../trading_data/" + dataset)
