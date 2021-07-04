@@ -8,6 +8,9 @@ from vnpy.trader.object import TickData, BarData
 from vnpy.trader.constant import Interval
 
 
+'''
+该文件应在portfolio_strategy/strategies目录下
+'''
 
 class MultiTimeframePortfolioStrategy(StrategyTemplate):
     """"""
