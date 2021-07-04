@@ -91,8 +91,6 @@ def read_ark():
             ark_stock.append(z)
     return ark_stock
 def get_single_dataset(dataset):
-    import pdb;
-    pdb.set_trace()
     if dataset == 'all':
         all_tickers = []
         NYSE_company, NASDAQ_company, AEMX_company = get_ticker()
