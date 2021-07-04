@@ -25,7 +25,8 @@ end = datetime.date.today()
 start = end - datetime.timedelta(days=0)
 all_stock_day = []
 add_fundamental = 1
-for symbol in get_single_dataset('top5000'):
+dataset = 'ark'
+for symbol in get_single_dataset(dataset):
     day_data = get_data(stock_name=symbol, start=start, end=end, interval='1d')
     day_data['symbol'] = symbol
     if add_fundamental:
@@ -37,4 +38,4 @@ for symbol in get_single_dataset('top5000'):
                 day_data[key] = None
     all_stock_day.append(day_data)
 all_stock_day = pd.concat(all_stock_day)
-all_stock_day.to_csv('../../../trading_data/' + str(end) + '_daily_stock.csv')
+all_stock_day.to_csv('../../../trading_data/' + str(end) + '_'+dataset+'_daily_stock.csv')
