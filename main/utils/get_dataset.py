@@ -1,0 +1,73 @@
+import glob
+import yfinance as yf
+import csv
+
+import datetime
+import pandas as pd
+import os
+
+try:
+    # For Python 3.0 and later
+    from urllib.request import urlopen
+except ImportError:
+    # Fall back to Python 2's urllib2
+    from urllib2 import urlopen
+
+import json
+
+
+
+
+def get_jsonparsed_data(url):
+    response = urlopen(url)
+    data = response.read().decode("utf-8")
+    return json.loads(data)
+
+def get_ticker():
+    url = ("https://financialmodelingprep.com/api/v3/search?query=&limit=100000&exchange=NYSE&apikey=demo")
+    NYSE_company = get_jsonparsed_data(url)
+    NYSE_company_info = {}
+    for i in NYSE_company:
+        NYSE_company_info[i['symbol']] = i
+    url = ("https://financialmodelingprep.com/api/v3/search?query=&limit=100000&exchange=NASDAQ&apikey=demo")
+    NASDAQ_company = get_jsonparsed_data(url)
+    NASDAQ_company_info = {}
+    for i in NASDAQ_company:
+        NASDAQ_company_info[i['symbol']] = i
+    url = ("https://financialmodelingprep.com/api/v3/search?query=&limit=100000&exchange=AMEX&apikey=demo")
+    AMEX_company = get_jsonparsed_data(url)
+    AEMX_company_info = {}
+    for i in AMEX_company:
+        AEMX_company_info[i['symbol']] = i
+    return NYSE_company_info, NASDAQ_company_info, AEMX_company_info
+def read_ark():
+    ark_stock = []
+    for i in glob.glob('../../test_data/dataset/ark/*csv'):
+        ark = pd.read_csv(i)
+        for z in ark['ticker']:
+            ark_stock.append(z)
+    return ark_stock
+def get_single_dataset(dataset):
+    if dataset == 'all':
+        all_tickers = []
+        NYSE_company, NASDAQ_company, AEMX_company = get_ticker()
+        for com in [NASDAQ_company, AEMX_company]:
+            for symbol in com.keys():
+                all_tickers.append(symbol)
+        #        break
+        download_dataset = all_tickers
+    elif dataset == 'top100':
+        download_dataset = pd.read_csv('../../test_data/dataset/top-100-stocks-to-buy-04-06-2021.csv')['Symbol']
+    elif dataset == 'sp500':
+        download_dataset = pd.read_csv('../../test_data/dataset/sp500.csv')['Symbol']
+    elif dataset == 'ark':
+        download_dataset = read_ark()
+    elif dataset == 'rusell1000':
+        download_dataset = pd.read_csv('../../test_data/dataset/russell-1000-index-05-21-2021.csv')['Symbol']
+    elif dataset == 'nasdaq100':
+        download_dataset = pd.read_csv('../../test_data/dataset/nasdaq100-05-21.csv')['Symbol']
+    elif dataset == 'top5000':
+        download_dataset = pd.read_csv('../../test_data/dataset/earnings_calendar.csv')['symbol']
+    print('starting data downloading for ' + dataset)
+    return dataset
+
