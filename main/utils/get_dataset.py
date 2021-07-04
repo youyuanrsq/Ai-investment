@@ -91,6 +91,8 @@ def read_ark():
             ark_stock.append(z)
     return ark_stock
 def get_single_dataset(dataset):
+    import pdb;
+    pdb.set_trace()
     if dataset == 'all':
         all_tickers = []
         NYSE_company, NASDAQ_company, AEMX_company = get_ticker()
@@ -111,6 +113,7 @@ def get_single_dataset(dataset):
         download_dataset = pd.read_csv('../../test_data/dataset/nasdaq100-05-21.csv')['Symbol']
     elif dataset == 'top5000':
         download_dataset = pd.read_csv('../../test_data/dataset/earnings_calendar.csv')['symbol']
-    print('starting data downloading for ' + dataset)
+
+    print('starting data downloading for ' + dataset, len(download_dataset))
     return download_dataset
 
