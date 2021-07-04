@@ -5,7 +5,7 @@ from vnpy.trader.constant import Interval
 from vnpy.app.portfolio_strategy.strategies import multi_timeframe_portfolio_strategy
 
 '''
-该文件应在 portfolio_streategy下
+该文件应在 portfolio_streategy目录下
 '''
 
 def set_ratios(num, vt_symbols):
