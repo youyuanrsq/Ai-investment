@@ -112,5 +112,5 @@ def get_single_dataset(dataset):
     elif dataset == 'top5000':
         download_dataset = pd.read_csv('../../test_data/dataset/earnings_calendar.csv')['symbol']
     print('starting data downloading for ' + dataset)
-    return dataset
+    return download_dataset
 
